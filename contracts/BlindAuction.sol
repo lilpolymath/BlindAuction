@@ -8,22 +8,27 @@ contract BlindAuction {
         uint deposit;
     }
 
-    mapping(address => Bid[]) bids;
+    mapping(address => Bid[]) public bids;
     mapping(address => uint) refunds;
 
     uint public auctionStartTime;
     uint public auctionEndTime;
+    uint public auctionDuration;
 
     uint highestBid;
     address highestBidder;
-    address payable beneficiary;
+    address payable public beneficiary;
 
     event AuctionHasStarted(uint time);
     event RefundProcessed(address bidder, uint amount);
     event AuctionHasEnded(uint amount, address bidder);
+    event SuccessfulBid(address bidder);
+    event HighestBidIncreased(address bidder);
 
     error TooEarly(uint time);
     error TooLate(uint time);
+    error NotBeneficiary(address sender);
+    error BidStillInProgress(uint time);
     error NoRefundToBeProcessed(address bidder);
     error InCompleteBidData(address bidder);
 
@@ -39,17 +44,22 @@ contract BlindAuction {
     }
 
     modifier biddingHasEnded(uint _time) {
-        require(_time > auctionEndTime);
+        if (_time < auctionEndTime) {
+            revert BidStillInProgress({time: _time});
+        }
         _;
     }
 
     modifier isBeneficiary(address _address) {
-        require(_address == beneficiary);
+        if (_address != beneficiary) {
+            revert NotBeneficiary({sender: _address});
+        }
         _;
     }
 
-    constructor(uint auctionDuration) {
+    constructor(uint _auctionDuration) {
         auctionStartTime = block.timestamp;
+        auctionDuration = _auctionDuration;
         auctionEndTime = block.timestamp + auctionDuration;
 
         beneficiary = payable(msg.sender);
@@ -60,6 +70,7 @@ contract BlindAuction {
     function bid(
         bytes32 _hashedBid
     ) external payable biddingIsActive(block.timestamp) {
+        emit SuccessfulBid(msg.sender);
         bids[msg.sender].push(Bid({blindBid: _hashedBid, deposit: msg.value}));
     }
 
@@ -93,6 +104,8 @@ contract BlindAuction {
 
                     highestBid = value;
                     highestBidder = msg.sender;
+
+                    emit HighestBidIncreased(msg.sender);
                 } else {
                     refunds[msg.sender] += currentBid.deposit;
                 }
