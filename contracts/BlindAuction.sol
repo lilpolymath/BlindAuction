@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+import "hardhat/console.sol";
+
 //  @dev This is a time-based Blind Auction.
 contract BlindAuction {
     struct Bid {
@@ -20,10 +22,10 @@ contract BlindAuction {
     address payable public beneficiary;
 
     event AuctionHasStarted(uint time);
-    event RefundProcessed(address bidder, uint amount);
+    event RefundProcessed(address indexed bidder, uint amount);
     event AuctionHasEnded(uint amount, address bidder);
-    event SuccessfulBid(address bidder);
-    event HighestBidIncreased(address bidder);
+    event SuccessfulBid(address indexed bidder);
+    event HighestBidIncreased(address indexed bidder);
 
     error TooEarly(uint time);
     error TooLate(uint time);
@@ -67,11 +69,22 @@ contract BlindAuction {
         emit AuctionHasStarted(block.timestamp);
     }
 
+    function getNoOfBidsByBidder(address bidder) external view returns (uint) {
+        return bids[bidder].length;
+    }
+
+    function getBidsByBidder(
+        address bidder
+    ) external view returns (Bid[] memory) {
+        return bids[bidder];
+    }
+
     function bid(
         bytes32 _hashedBid
     ) external payable biddingIsActive(block.timestamp) {
-        emit SuccessfulBid(msg.sender);
+        console.log("Deposit is %o", msg.value);
         bids[msg.sender].push(Bid({blindBid: _hashedBid, deposit: msg.value}));
+        emit SuccessfulBid(msg.sender);
     }
 
     function revealBids(
@@ -79,6 +92,8 @@ contract BlindAuction {
         bytes32[] calldata _secrets
     ) external biddingHasEnded(block.timestamp) {
         uint lengthOfBids = bids[msg.sender].length;
+
+        console.log("Length of bids is %o", lengthOfBids);
 
         if (_values.length != lengthOfBids && _secrets.length != lengthOfBids) {
             revert InCompleteBidData(msg.sender);
@@ -90,6 +105,8 @@ contract BlindAuction {
             (uint value, bytes32 secret) = (_values[i], _secrets[i]);
 
             Bid storage currentBid = bids[msg.sender][i];
+
+            console.log("Bid Deposit is %o", currentBid.deposit);
 
             if (
                 currentBid.blindBid ==
@@ -117,6 +134,8 @@ contract BlindAuction {
         if (msg.sender != highestBidder) {
             refunds[msg.sender] = totalRefund;
         }
+
+        console.log("Total Refund is %o ", totalRefund);
     }
 
     function payBeneficiary()
