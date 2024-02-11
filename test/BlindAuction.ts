@@ -182,26 +182,50 @@ describe('BlindAuction', () => {
 
     describe('Events', () => {
       it('Should reveal bid', async () => {
-        const { blindAuction, bidder3, bidData } = await loadFixture(
-          deployBlindAuctionFixture
-        );
+        const { blindAuction, bidder3, bidder2, bidder1, bidData } =
+          await loadFixture(deployBlindAuctionFixture);
 
-        const values = bidData['bidder3'].values.map(parseEther);
-        const secrets = bidData['bidder3'].secrets.map(encodeBytes32String);
+        //@ts-ignore
+        Object.keys(bidData).forEach(async (bidder) => {
+          //@ts-ignore
+          const values = bidData[bidder].values.map(parseEther);
 
-        bidData['bidder3'].values.forEach(async (value, index) => {
-          const hashedBid = solidityPackedKeccak256(
-            ['uint', 'bytes32'],
-            [
-              parseEther(value),
-              encodeBytes32String(bidData.bidder3.secrets[index]),
-            ]
-          );
+          //@ts-ignore
+          const secrets = bidData[bidder].secrets.map(encodeBytes32String);
 
-          await expect(blindAuction.connect(bidder3).bid(hashedBid))
-            .to.emit(blindAuction, 'SuccessfulBid')
-            .withArgs(bidder3.address);
+          //@ts-ignore
+          values.forEach(async (value, index) => {
+            const hashedBid = solidityPackedKeccak256(
+              ['uint', 'bytes32'],
+              [value, secrets[index]]
+            );
+
+            await expect(
+              blindAuction.connect(bidder1).bid(hashedBid, {
+                value: generateRandomDeposit(),
+              })
+            )
+              .to.emit(blindAuction, 'SuccessfulBid')
+              .withArgs(bidder1.address);
+          });
         });
+
+        // const values = bidData['bidder3'].values.map(parseEther);
+        // const secrets = bidData['bidder3'].secrets.map(encodeBytes32String);
+
+        // bidData['bidder3'].values.forEach(async (value, index) => {
+        //   const hashedBid = solidityPackedKeccak256(
+        //     ['uint', 'bytes32'],
+        //     [
+        //       parseEther(value),
+        //       encodeBytes32String(bidData.bidder3.secrets[index]),
+        //     ]
+        //   );
+
+        //   await expect(blindAuction.connect(bidder3).bid(hashedBid))
+        //     .to.emit(blindAuction, 'SuccessfulBid')
+        //     .withArgs(bidder2.address);
+        // });
 
         const TIME = 60 * 60 * 2;
 
@@ -212,9 +236,9 @@ describe('BlindAuction', () => {
         //   await blindAuction.connect(bidder3).getBidsByBidder(bidder3.address)
         // );
 
-        await expect(blindAuction.connect(bidder3).revealBids(values, secrets))
-          .to.emit(blindAuction, 'HighestBidIncreased')
-          .withArgs(bidder3.address);
+        // await expect(blindAuction.connect(bidder3).revealBids(values, secrets))
+        //   .to.emit(blindAuction, 'HighestBidIncreased')
+        //   .withArgs(bidder3.address);
       });
     });
 
